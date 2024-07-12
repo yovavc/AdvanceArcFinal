@@ -22,9 +22,30 @@ torchaudio.set_audio_backend("soundfile")
 # Login to wandb with the API key
 wandb.login(key="8c46208fe9e553bdaa921b70d41ec7601e302cce")
 # Initialize wandb
-wandb.init(project="kws-project_biu", entity="yovav-org")
+wandb.init(project="kws-project_biu")
 
-
+sweep_config = {
+    'method': 'bayes',  # or 'random', 'grid'
+    'metric': {
+        'name': 'Test Accuracy',
+        'goal': 'maximize'
+    },
+    'parameters': {
+        'learning_rate': {
+            'values': [0.0001, 0.001, 0.01, 0.1]
+        },
+        'betas': {
+            'values': [(0.9, 0.999), (0.95, 0.999), (0.9, 0.98)]
+        },
+        'eps': {
+            'values': [1e-8, 1e-7, 1e-6]
+        },
+        'epochs': {
+            'values': [10, 20, 30]
+        }
+    }
+}
+sweep_id = wandb.sweep(sweep_config, project='kws-project-swip')
 class SubsetSC(SPEECHCOMMANDS):
     def __init__(self, subset: str = None):
         super().__init__("./", download=True)
@@ -113,13 +134,13 @@ test_loader = torch.utils.data.DataLoader(
 )
 
 transformer = RNNAttention(35)
-transformer.load_state_dict(torch.load("file"))
+# transformer.load_state_dict(torch.load("file"))
 transformer.eval()
 
 transformer.cuda()
 transformer.to(device)
 
-optimizer = optim.Adam(transformer.parameters(), lr=0.0001, betas=(0.9, 0.98), eps=1e-7)
+optimizer = optim.Adam(transformer.parameters(), lr=0.01, betas=(0.9, 0.98), eps=1e-7)
 scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
 loss_fn = torch.nn.CrossEntropyLoss()
 
@@ -186,7 +207,7 @@ def test(model, epoch):
 
 
 log_interval = 100
-n_epoch = 10
+n_epoch = 30
 
 pbar_update = 1 / (len(train_loader) + len(test_loader))
 losses = []
