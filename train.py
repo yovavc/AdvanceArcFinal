@@ -8,7 +8,7 @@ from torchaudio.transforms import MelSpectrogram
 from tqdm import tqdm
 import wandb
 
-from RNN2 import RNNAttention, GPU
+from EncoderCNN import UNetEncoder
 
 # Set the backend to 'soundfile'
 torchaudio.set_audio_backend("soundfile")
@@ -18,7 +18,7 @@ wandb.login(key="8c46208fe9e553bdaa921b70d41ec7601e302cce")
 
 # Define the sweep configuration
 sweep_config = {
-    'method': 'bayes',  # or 'random', 'grid'
+    'method': 'bayes',  # Bayesian optimization
     'metric': {
         'name': 'Test Accuracy',
         'goal': 'maximize'
@@ -34,7 +34,7 @@ sweep_config = {
             'values': [1e-8, 1e-7, 1e-6]
         },
         'epochs': {
-            'values': [10, 20, 30]
+            'values': [5]
         }
     }
 }
@@ -95,9 +95,9 @@ def collate_fn(batch):
     return tensors, targets
 
 
-device = torch.device("cuda" if torch.cuda.is_available() and GPU else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 if device == "cuda":
-    num_workers = 1
+    num_workers = 30
     pin_memory = True
 else:
     num_workers = 0
@@ -109,7 +109,7 @@ train_set = SubsetSC("training")
 valid_set = SubsetSC("validation")
 test_set = SubsetSC("testing")
 
-transform = MelSpectrogram(16000)
+transform = MelSpectrogram(sample_rate=16000)
 transform.to(device)
 
 train_loader = torch.utils.data.DataLoader(
@@ -136,13 +136,14 @@ def number_of_correct(pred, target):
 
 
 def train(config=None):
+    num_classes = 35
     with wandb.init(config=config):
         config = wandb.config
 
-        transformer = RNNAttention(35)
-        transformer.to(device)
+        model = UNetEncoder(num_classes=num_classes)
+        model.to(device)
 
-        optimizer = optim.Adam(transformer.parameters(),
+        optimizer = optim.Adam(model.parameters(),
                                lr=config.learning_rate,
                                betas=config.betas,
                                eps=config.eps)
@@ -151,7 +152,7 @@ def train(config=None):
         pbar_update = 1 / (len(train_loader) + len(test_loader))
 
         for epoch in range(1, config.epochs + 1):
-            transformer.train()
+            model.train()
             count = 0
             total_loss = 0
 
@@ -161,7 +162,12 @@ def train(config=None):
                     target = target.to(device)
                     data = data.to(device).squeeze()
                     data = transform(data)
-                    output = transformer(data)
+
+                    data = data.unsqueeze(0)
+                    data = data.permute(1, 0, 2, 3)
+
+
+                    output = model(data)
                     loss = loss_fn(output, target)
                     loss.backward()
                     optimizer.step()
@@ -181,7 +187,7 @@ def train(config=None):
             print(f" - Train Epoch: {epoch} [{batch_idx * len(data)}/{len(train_loader.dataset)} "
                   f"({100. * batch_idx / len(train_loader):.0f}%)]\tLoss: {avg_loss:.6f}, Accuracy: {accuracy:.4f}")
 
-            transformer.eval()
+            model.eval()
             correct = 0
             total_loss = 0
             with torch.no_grad():
@@ -189,7 +195,9 @@ def train(config=None):
                     data = data.to(device)
                     target = target.to(device)
                     data = transform(data).squeeze()
-                    output = transformer(data)
+                    data = data.unsqueeze(0)
+                    data = data.permute(1, 0, 2, 3)
+                    output = model(data)
                     loss = loss_fn(output, target)
                     total_loss += loss.item()
 
@@ -206,4 +214,4 @@ def train(config=None):
 
 
 # Start the sweep
-wandb.agent(sweep_id, train, count=10)
+wandb.agent(sweep_id, train, count=30)
