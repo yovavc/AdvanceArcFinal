@@ -8,7 +8,7 @@ model = UNetEncoder(num_classes= 35)
 model.eval()
 
 # Create a dummy input tensor with the appropriate shape
-dummy_input = torch.randn(1,1, 40, 81)  # Adjust the shape based on your model's expected input
+dummy_input = torch.randn(1,1, 128, 81)  # Adjust the shape based on your model's expected input
 
 # Export the model to ONNX
 torch.onnx.export(model, dummy_input, "model.onnx", input_names=['input'], output_names=['output'])

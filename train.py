@@ -25,13 +25,13 @@ sweep_config = {
     },
     'parameters': {
         'learning_rate': {
-            'values': [0.0001, 0.001, 0.01, 0.1]
+            'values': [0.01]
         },
         'betas': {
-            'values': [(0.9, 0.999), (0.95, 0.999), (0.9, 0.98)]
+            'values': [(0.95, 0.999)]
         },
         'eps': {
-            'values': [1e-8, 1e-7, 1e-6]
+            'values': [1e-8]
         },
         'epochs': {
             'values': [5]
@@ -140,7 +140,7 @@ def train(config=None):
     with wandb.init(config=config):
         config = wandb.config
 
-        model = UNetEncoder(num_classes=num_classes)
+        model = UNetEncoder(num_classes=num_classes, start_filters=32)
         model.to(device)
 
         optimizer = optim.Adam(model.parameters(),
