@@ -4,9 +4,9 @@ import torch.nn.functional as F
 
 
 class UNetEncoder(nn.Module):
-    def __init__(self, in_channels=1, start_filters=64, num_classes=35):
+    def __init__(self, in_channels=1, start_filters=64, num_classes=35, dropOutProbability=0.5):
         super(UNetEncoder, self).__init__()
-
+        self.dropOutProbability = dropOutProbability
         self.enc1 = self.conv_block(in_channels, start_filters)
         self.enc2 = self.conv_block(start_filters, start_filters * 2)
         self.enc3 = self.conv_block(start_filters * 2, start_filters * 4)
@@ -17,6 +17,7 @@ class UNetEncoder(nn.Module):
 
         # Global average pooling and fully connected layer for classification
         self.global_avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.dropout = nn.Dropout(self.dropOutProbability)  # Apply dropout with a probability of 0.5
         self.fc = nn.Linear(start_filters * 16, num_classes)
 
     def conv_block(self, in_channels, out_channels):
@@ -26,7 +27,8 @@ class UNetEncoder(nn.Module):
             nn.ReLU(inplace=True),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True),
+            nn.Dropout(self.dropOutProbability)
         )
 
     def forward(self, x):
@@ -39,6 +41,9 @@ class UNetEncoder(nn.Module):
         # Global average pooling
         x = self.global_avg_pool(enc5)
         x = x.view(x.size(0), -1)  # Flatten
+
+        # Apply dropout
+        x = self.dropout(x)
 
         # Fully connected layer
         x = self.fc(x)
