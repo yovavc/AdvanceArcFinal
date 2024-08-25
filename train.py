@@ -40,10 +40,10 @@ sweep_config = {
             'values': [30]
         },
         'time_mask_param': {
-            'values': [10, 20]
+            'values': [60]
         },
         'start_filters': {
-            'values': [1, 2]
+            'values': [1, 2, 4, 8]
 
         },
         'dropOutProbability': {
@@ -53,7 +53,7 @@ sweep_config = {
             'values': [40]
         },
         'run_count':{
-            'values':  list(range(1, 301))
+            'values':  list(range(1, 100))
         }
 
     }
@@ -186,7 +186,7 @@ def train(config=None):
         config = wandb.config
         tm = TimeMasking(time_mask_param=config.time_mask_param)
         fm = FrequencyMasking(freq_mask_param=config.freq_mask_param)
-        model = UNetEncoder(num_classes=num_classes, start_filters=16, dropOutProbability=config.dropOutProbability)
+        model = UNetEncoder(num_classes=num_classes, start_filters=config.start_filters, dropOutProbability=config.dropOutProbability)
         model.to(device)
 
         optimizer = optim.Adam(model.parameters(),
